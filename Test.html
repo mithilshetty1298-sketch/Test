@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Visa Transaction Filtering — Architecture Diagrams</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600;700&display=swap');
+
+  :root {
+    --bg: #0a0e1a;
+    --panel: #111827;
+    --border: #1e2d45;
+    --accent1: #00d4ff;
+    --accent2: #3b82f6;
+    --accent3: #22c55e;
+    --accent4: #f59e0b;
+    --accent5: #ef4444;
+    --accent6: #a855f7;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --label: #94a3b8;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    padding: 40px 32px;
+    min-width: 1200px;
+  }
+
+  .page-header {
+    text-align: center;
+    margin-bottom: 60px;
+    position: relative;
+  }
+  .page-header::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent2), var(--accent1), var(--accent2), transparent);
+    opacity: 0.4;
+  }
+  .page-header h1 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--accent1);
+    background: var(--bg);
+    display: inline-block;
+    padding: 0 24px;
+    position: relative;
+  }
+  .page-header p {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+    margin-top: 8px;
+    background: var(--bg);
+    display: inline-block;
+    padding: 0 16px;
+    position: relative;
+  }
+
+  .diagram-section {
+    margin-bottom: 64px;
+  }
+
+  .section-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent2);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .diagram-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 24px;
+    letter-spacing: -0.02em;
+  }
+
+  /* ─── DIAGRAM CANVAS ─── */
+  .canvas {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 40px;
+    position: relative;
+    overflow: visible;
+  }
+
+  /* ─── NODES ─── */
+  .node {
+    position: absolute;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .node-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    line-height: 1.4;
+  }
+
+  .node-sub {
+    font-size: 8px;
+    font-weight: 400;
+    opacity: 0.65;
+    margin-top: 3px;
+    line-height: 1.4;
+    letter-spacing: 0.04em;
+  }
+
+  .node-icon {
+    font-size: 22px;
+    margin-bottom: 6px;
+  }
+
+  .n-visa    { background: rgba(0,212,255,0.08); border: 1.5px solid var(--accent1); color: var(--accent1); }
+  .n-apigee  { background: rgba(59,130,246,0.1); border: 1.5px solid var(--accent2); color: var(--accent2); }
+  .n-decoder { background: rgba(34,197,94,0.08); border: 1.5px solid var(--accent3); color: var(--accent3); }
+  .n-screen  { background: rgba(245,158,11,0.08); border: 1.5px solid var(--accent4); color: var(--accent4); }
+  .n-alert   { background: rgba(239,68,68,0.08); border: 1.5px solid var(--accent5); color: var(--accent5); }
+  .n-kms     { background: rgba(168,85,247,0.08); border: 1.5px solid var(--accent6); color: var(--accent6); }
+  .n-server  { background: rgba(255,255,255,0.03); border: 1.5px dashed var(--border); color: var(--muted); }
+
+  /* ─── SVG ARROWS ─── */
+  svg.arrows {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    overflow: visible;
+  }
+
+  .arrow-line {
+    stroke-width: 1.5;
+    fill: none;
+    stroke-dasharray: none;
+  }
+  .arrow-dashed {
+    stroke-dasharray: 5 3;
+  }
+
+  .a-visa    { stroke: var(--accent1); }
+  .a-apigee  { stroke: var(--accent2); }
+  .a-decoder { stroke: var(--accent3); }
+  .a-screen  { stroke: var(--accent4); }
+  .a-kms     { stroke: var(--accent6); }
+  .a-alert   { stroke: var(--accent5); }
+  .a-muted   { stroke: var(--muted); }
+
+  .arrow-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 8.5px;
+    fill: var(--muted);
+    letter-spacing: 0.04em;
+  }
+  .arrow-label.bright { fill: var(--label); }
+
+  /* ─── LEGEND ─── */
+  .legend {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin-top: 20px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9.5px;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+  }
+  .legend-line {
+    width: 28px;
+    height: 2px;
+  }
+  .legend-dashed {
+    background: repeating-linear-gradient(90deg, var(--muted) 0px, var(--muted) 5px, transparent 5px, transparent 8px);
+  }
+
+  /* ─── SEQUENCE DIAGRAM ─── */
+  .seq-wrap {
+    overflow-x: auto;
+  }
+  .seq-table {
+    min-width: 1100px;
+    width: 100%;
+  }
+
+  .seq-actors {
+    display: flex;
+    margin-bottom: 0;
+  }
+
+  .seq-actor {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
+
+  .seq-actor-box {
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-align: center;
+    min-width: 100px;
+    line-height: 1.4;
+    position: relative;
+    z-index: 2;
+  }
+
+  .seq-lifeline {
+    width: 1px;
+    background: var(--border);
+    flex: 1;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  .seq-body {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .seq-row {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    position: relative;
+  }
+
+  .seq-col {
+    flex: 1;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .seq-lifeline-col {
+    position: absolute;
+    top: 0; bottom: 0;
+    left: 50%;
+    width: 1px;
+    background: var(--border);
+  }
+
+  .seq-arrow-wrap {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    z-index: 2;
+  }
+
+  .seq-arrow-line {
+    height: 1.5px;
+    flex: 1;
+  }
+
+  .seq-arrow-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 8px;
+    white-space: nowrap;
+    letter-spacing: 0.04em;
+    position: absolute;
+    top: -14px;
+    left: 0;
+  }
+
+  /* ─── DECISION FLOW ─── */
+  .flow-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    position: relative;
+  }
+
+  .flow-node {
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    text-align: center;
+    min-width: 260px;
+    position: relative;
+    z-index: 2;
+  }
+
+  .flow-diamond {
+    width: 200px;
+    height: 60px;
+    position: relative;
+    z-index: 2;
+  }
+  .flow-diamond svg { width: 100%; height: 100%; }
+
+  .flow-connector {
+    width: 2px;
+    height: 28px;
+    margin: 0 auto;
+  }
+
+  .flow-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 80px;
+    position: relative;
+    width: 100%;
+  }
+
+  .flow-branch {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+
+  .flow-branch-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  /* Server boundary boxes */
+  .server-box {
+    border: 1px dashed;
+    border-radius: 10px;
+    padding: 8px 12px;
+    position: absolute;
+    pointer-events: none;
+  }
+
+  .server-box-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    position: absolute;
+    top: -10px;
+    left: 16px;
+    padding: 0 6px;
+    background: var(--panel);
+  }
+
+  /* ─── HIGHLIGHT BADGE ─── */
+  .badge {
+    display: inline-block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 3px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+
+  /* Print / export note */
+  .export-note {
+    background: rgba(59,130,246,0.08);
+    border: 1px solid rgba(59,130,246,0.25);
+    border-radius: 8px;
+    padding: 14px 20px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9.5px;
+    color: var(--label);
+    margin-bottom: 48px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    letter-spacing: 0.04em;
+  }
+  .export-note .icon { font-size: 16px; }
+
+  /* Divider */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 56px 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>Visa Transaction Filtering — Architecture Diagrams</h1>
+  <p>BNP Paribas CPL · Shine Project · Fircosoft V6</p>
+</div>
+
+<div class="export-note">
+  <span class="icon">💡</span>
+  <span>To export as image: open browser Print dialog → Save as PDF, or right-click → Inspect and screenshot each diagram section. Each diagram is fully self-contained.</span>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     DIAGRAM 1: HIGH-LEVEL ARCHITECTURE
+══════════════════════════════════════════════════════════════ -->
+<div class="diagram-section">
+  <div class="section-label">Diagram 01</div>
+  <div class="diagram-title">High-Level Architecture Overview</div>
+  <div class="canvas" style="height: 520px;">
+
+    <!-- SERVER A boundary -->
+    <div style="position:absolute; left:400px; top:30px; width:460px; height:280px; border:1px dashed #1e2d45; border-radius:10px;">
+      <span style="position:absolute;top:-10px;left:14px;background:var(--panel);padding:0 8px;font-family:'IBM Plex Mono',monospace;font-size:8px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);">SERVER A — RHEL 9</span>
+    </div>
+
+    <!-- SERVER B boundary -->
+    <div style="position:absolute; left:400px; top:340px; width:460px; height:120px; border:1px dashed #1e2d45; border-radius:10px;">
+      <span style="position:absolute;top:-10px;left:14px;background:var(--panel);padding:0 8px;font-family:'IBM Plex Mono',monospace;font-size:8px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);">SERVER B — RHEL 9</span>
+    </div>
+
+    <!-- BCCKMS boundary -->
+    <div style="position:absolute; left:920px; top:80px; width:180px; height:140px; border:1px dashed rgba(168,85,247,0.3); border-radius:10px;">
+      <span style="position:absolute;top:-10px;left:14px;background:var(--panel);padding:0 8px;font-family:'IBM Plex Mono',monospace;font-size:8px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#a855f7;">KMS SERVER</span>
+    </div>
+
+    <!-- NODES -->
+    <!-- VISA -->
+    <div class="node n-visa" style="width:100px;height:80px;left:20px;top:130px;">
+      <div class="node-icon">🏦</div>
+      <div class="node-label">VISA</div>
+      <div class="node-sub">Payment Network</div>
+    </div>
+
+    <!-- APIGEE -->
+    <div class="node n-apigee" style="width:110px;height:80px;left:170px;top:130px;">
+      <div class="node-icon">🔀</div>
+      <div class="node-label">APIGEE</div>
+      <div class="node-sub">API Gateway</div>
+    </div>
+
+    <!-- DECODER -->
+    <div class="node n-decoder" style="width:130px;height:90px;left:420px;top:75px;">
+      <div class="node-icon">🔓</div>
+      <div class="node-label">DECODER<br>APP</div>
+      <div class="node-sub">Spring Boot 3 / Java 21</div>
+    </div>
+
+    <!-- SCREENING BOX -->
+    <div class="node n-screen" style="width:140px;height:90px;left:600px;top:75px;">
+      <div class="node-icon">🔍</div>
+      <div class="node-label">SCREENING<br>BOX</div>
+      <div class="node-sub">Fircosoft V6</div>
+    </div>
+
+    <!-- ALERT CONTROLLER -->
+    <div class="node n-alert" style="width:150px;height:80px;left:430px;top:365px;">
+      <div class="node-icon">🚨</div>
+      <div class="node-label">ALERT<br>CONTROLLER</div>
+      <div class="node-sub">Compliance Engine</div>
+    </div>
+
+    <!-- BCCKMS -->
+    <div class="node n-kms" style="width:140px;height:90px;left:930px;top:95px;">
+      <div class="node-icon">🔑</div>
+      <div class="node-label">BCCKMS</div>
+      <div class="node-sub">CADP / Thales HSM</div>
+    </div>
+
+    <!-- SVG ARROWS -->
+    <svg class="arrows">
+      <defs>
+        <marker id="ah-cyan" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#00d4ff"/>
+        </marker>
+        <marker id="ah-blue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#3b82f6"/>
+        </marker>
+        <marker id="ah-green" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#22c55e"/>
+        </marker>
+        <marker id="ah-amber" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#f59e0b"/>
+        </marker>
+        <marker id="ah-red" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#ef4444"/>
+        </marker>
+        <marker id="ah-purple" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#a855f7"/>
+        </marker>
+        <marker id="ah-muted" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#64748b"/>
+        </marker>
+      </defs>
+
+      <!-- VISA → APIGEE (forward) -->
+      <line x1="122" y1="158" x2="168" y2="158" stroke="#00d4ff" stroke-width="1.5" marker-end="url(#ah-cyan)"/>
+      <text x="133" y="150" class="arrow-label bright">mTLS</text>
+
+      <!-- APIGEE → VISA (return, below) -->
+      <line x1="170" y1="202" x2="124" y2="202" stroke="#00d4ff" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#ah-cyan)"/>
+      <text x="130" y="218" class="arrow-label">response</text>
+
+      <!-- APIGEE → DECODER (forward) -->
+      <line x1="282" y1="158" x2="418" y2="118" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#ah-blue)"/>
+      <text x="300" y="130" class="arrow-label bright">mTLS POST</text>
+
+      <!-- DECODER → APIGEE (return) -->
+      <line x1="420" y1="130" x2="283" y2="168" stroke="#3b82f6" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#ah-blue)"/>
+      <text x="295" y="168" class="arrow-label">HTTP response</text>
+
+      <!-- DECODER → SCREENING BOX -->
+      <line x1="552" y1="118" x2="598" y2="118" stroke="#22c55e" stroke-width="1.5" marker-end="url(#ah-green)"/>
+      <text x="553" y="110" class="arrow-label bright">FUF msg (localhost)</text>
+
+      <!-- SCREENING → DECODER (ack) -->
+      <line x1="600" y1="140" x2="554" y2="140" stroke="#22c55e" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#ah-green)"/>
+      <text x="556" y="158" class="arrow-label">ACK</text>
+
+      <!-- SCREENING BOX → ALERT CONTROLLER (cross-server, vertical-ish) -->
+      <path d="M 670 167 Q 670 260 560 360" stroke="#f59e0b" stroke-width="1.5" fill="none" marker-end="url(#ah-amber)"/>
+      <text x="685" y="240" class="arrow-label bright">mTLS (Server A→B)</text>
+
+      <!-- ALERT → SCREENING (return) -->
+      <path d="M 540 360 Q 540 270 640 168" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4 3" fill="none" marker-end="url(#ah-red)"/>
+      <text x="490" y="290" class="arrow-label">decision</text>
+
+      <!-- DECODER → BCCKMS -->
+      <line x1="552" y1="105" x2="928" y2="130" stroke="#a855f7" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#ah-purple)"/>
+      <text x="680" y="98" class="arrow-label bright">mTLS — GET key/{keyId}</text>
+
+      <!-- BCCKMS → DECODER (return) -->
+      <line x1="930" y1="148" x2="554" y2="122" stroke="#a855f7" stroke-width="1" stroke-dasharray="3 3" marker-end="url(#ah-purple)"/>
+      <text x="690" y="146" class="arrow-label">key material</text>
+    </svg>
+
+    <!-- LEGEND -->
+    <div style="position:absolute;bottom:20px;left:40px;display:flex;gap:28px;flex-wrap:wrap;">
+      <div class="legend-item">
+        <div class="legend-line" style="background:#00d4ff;height:2px;"></div>
+        <span style="color:#00d4ff;">Visa ↔ Apigee (mTLS)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-line" style="background:#3b82f6;height:2px;"></div>
+        <span style="color:#3b82f6;">Apigee ↔ Decoder (mTLS)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-line" style="background:#22c55e;height:2px;"></div>
+        <span style="color:#22c55e;">Decoder ↔ Screening (localhost)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-line" style="background:#f59e0b;height:2px;"></div>
+        <span style="color:#f59e0b;">Screening ↔ Alert (mTLS)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-line" style="background:#a855f7;height:2px;height:2px;background:repeating-linear-gradient(90deg,#a855f7 0,#a855f7 5px,transparent 5px,transparent 8px);"></div>
+        <span style="color:#a855f7;">Decoder ↔ BCCKMS (mTLS)</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ══════════════════════════════════════════════════════════════
+     DIAGRAM 2: DATA FLOW SEQUENCE DIAGRAM
+══════════════════════════════════════════════════════════════ -->
+<div class="diagram-section">
+  <div class="section-label">Diagram 02</div>
+  <div class="diagram-title">End-to-End Data Flow Sequence</div>
+  <div class="canvas" style="padding: 32px 24px;">
+
+    <div style="display:flex;width:100%;gap:0;margin-bottom:0;">
+
+      <!-- Actor columns -->
+      <style>
+        .sa { display:flex;flex-direction:column;align-items:center;flex:1;min-width:0; }
+        .sa-box { padding:9px 6px;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:8.5px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;text-align:center;width:90%;position:relative;z-index:2;line-height:1.5; }
+        .sa-life { width:1px;background:var(--border);flex:1;margin:0 auto; }
+      </style>
+
+      <!-- We'll build the sequence as an SVG -->
+      <svg width="100%" height="660" style="font-family:'IBM Plex Mono',monospace;overflow:visible;">
+        <!-- Actor positions (center x) -->
+        <!-- VISA=70, APIGEE=210, DECODER=380, BCCKMS=550, SCREENBOX=720, ALERTCTRL=890 -->
+
+        <!-- Actor boxes -->
+        <rect x="20" y="0" width="100" height="44" rx="6" fill="rgba(0,212,255,0.08)" stroke="#00d4ff" stroke-width="1.5"/>
+        <text x="70" y="17" text-anchor="middle" fill="#00d4ff" font-size="8.5" font-weight="600" letter-spacing="1">VISA</text>
+        <text x="70" y="30" text-anchor="middle" fill="#00d4ff" font-size="7" opacity="0.7">Payment Network</text>
+
+        <rect x="155" y="0" width="110" height="44" rx="6" fill="rgba(59,130,246,0.1)" stroke="#3b82f6" stroke-width="1.5"/>
+        <text x="210" y="17" text-anchor="middle" fill="#3b82f6" font-size="8.5" font-weight="600" letter-spacing="1">APIGEE</text>
+        <text x="210" y="30" text-anchor="middle" fill="#3b82f6" font-size="7" opacity="0.7">API Gateway</text>
+
+        <rect x="318" y="0" width="122" height="44" rx="6" fill="rgba(34,197,94,0.08)" stroke="#22c55e" stroke-width="1.5"/>
+        <text x="379" y="17" text-anchor="middle" fill="#22c55e" font-size="8.5" font-weight="600" letter-spacing="1">DECODER</text>
+        <text x="379" y="30" text-anchor="middle" fill="#22c55e" font-size="7" opacity="0.7">Spring Boot / Java 21</text>
+
+        <rect x="498" y="0" width="104" height="44" rx="6" fill="rgba(168,85,247,0.08)" stroke="#a855f7" stroke-width="1.5"/>
+        <text x="550" y="17" text-anchor="middle" fill="#a855f7" font-size="8.5" font-weight="600" letter-spacing="1">BCCKMS</text>
+        <text x="550" y="30" text-anchor="middle" fill="#a855f7" font-size="7" opacity="0.7">CADP / Thales HSM</text>
+
+        <rect x="665" y="0" width="118" height="44" rx="6" fill="rgba(245,158,11,0.08)" stroke="#f59e0b" stroke-width="1.5"/>
+        <text x="724" y="17" text-anchor="middle" fill="#f59e0b" font-size="8.5" font-weight="600" letter-spacing="1">SCREENING</text>
+        <text x="724" y="30" text-anchor="middle" fill="#f59e0b" font-size="7" opacity="0.7">Fircosoft V6</text>
+
+        <rect x="840" y="0" width="130" height="44" rx="6" fill="rgba(239,68,68,0.08)" stroke="#ef4444" stroke-width="1.5"/>
+        <text x="905" y="17" text-anchor="middle" fill="#ef4444" font-size="8.5" font-weight="600" letter-spacing="1">ALERT CTRL</text>
+        <text x="905" y="30" text-anchor="middle" fill="#ef4444" font-size="7" opacity="0.7">Compliance Engine</text>
+
+        <!-- Lifelines -->
+        <line x1="70"  y1="44" x2="70"  y2="660" stroke="#1e2d45" stroke-width="1"/>
+        <line x1="210" y1="44" x2="210" y2="660" stroke="#1e2d45" stroke-width="1"/>
+        <line x1="379" y1="44" x2="379" y2="660" stroke="#1e2d45" stroke-width="1"/>
+        <line x1="550" y1="44" x2="550" y2="660" stroke="#1e2d45" stroke-width="1"/>
+        <line x1="724" y1="44" x2="724" y2="660" stroke="#1e2d45" stroke-width="1"/>
+        <line x1="905" y1="44" x2="905" y2="660" stroke="#1e2d45" stroke-width="1"/>
+
+        <!-- ── STEP 1: VISA → APIGEE ── -->
+        <line x1="72" y1="90" x2="207" y2="90" stroke="#00d4ff" stroke-width="1.5" marker-end="url(#ah-cyan)"/>
+        <text x="110" y="84" fill="#00d4ff" font-size="8">POST /transaction (mTLS, encrypted payload)</text>
+        <!-- step number bubble -->
+        <circle cx="70" cy="90" r="9" fill="#00d4ff" opacity="0.15"/>
+        <text x="70" y="94" text-anchor="middle" fill="#00d4ff" font-size="7.5" font-weight="600">1</text>
+
+        <!-- ── STEP 2: APIGEE validates cert, rate-limit ── -->
+        <rect x="180" y="100" width="60" height="18" rx="3" fill="rgba(59,130,246,0.15)"/>
+        <text x="210" y="113" text-anchor="middle" fill="#3b82f6" font-size="7.5">validate cert + rate limit</text>
+
+        <!-- ── STEP 3: APIGEE → DECODER ── -->
+        <line x1="212" y1="132" x2="376" y2="132" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#ah-blue)"/>
+        <text x="240" y="126" fill="#3b82f6" font-size="8">POST /visa/v1/transaction (mTLS, encrypted body)</text>
+        <circle cx="210" cy="132" r="9" fill="#3b82f6" opacity="0.15"/>
+        <text x="210" y="136" text-anchor="middle" fill="#3b82f6" font-size="7.5" font-weight="600">2</text>
+
+        <!-- ── STEP 4: Decoder extracts keyId ── -->
+        <rect x="350" y="142" width="58" height="18" rx="3" fill="rgba(34,197,94,0.12)"/>
+        <text x="379" y="155" text-anchor="middle" fill="#22c55e" font-size="7.5">extract keyId</text>
+
+        <!-- ── STEP 5: Cache check ── -->
+        <rect x="350" y="164" width="58" height="18" rx="3" fill="rgba(34,197,94,0.07)"/>
+        <text x="379" y="177" text-anchor="middle" fill="#22c55e" font-size="7">check key cache</text>
+
+        <!-- ── STEP 6: Decoder → BCCKMS (cache miss) ── -->
+        <line x1="381" y1="196" x2="547" y2="196" stroke="#a855f7" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#ah-purple)"/>
+        <text x="395" y="189" fill="#a855f7" font-size="8">GET /key/{keyId} (mTLS) [cache miss only]</text>
+        <circle cx="379" cy="196" r="9" fill="#a855f7" opacity="0.15"/>
+        <text x="379" y="200" text-anchor="middle" fill="#a855f7" font-size="7.5" font-weight="600">3</text>
+
+        <!-- BCCKMS processing -->
+        <rect x="524" y="205" width="52" height="18" rx="3" fill="rgba(168,85,247,0.12)"/>
+        <text x="550" y="218" text-anchor="middle" fill="#a855f7" font-size="7">HSM key lookup</text>
+
+        <!-- ── STEP 7: BCCKMS → Decoder (key material) ── -->
+        <line x1="548" y1="234" x2="382" y2="234" stroke="#a855f7" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#ah-purple)"/>
+        <text x="395" y="228" fill="#a855f7" font-size="8">encrypted key material returned</text>
+
+        <!-- ── STEP 8: Decryption ── -->
+        <rect x="350" y="244" width="58" height="18" rx="3" fill="rgba(34,197,94,0.12)"/>
+        <text x="379" y="257" text-anchor="middle" fill="#22c55e" font-size="7">AES/RSA decrypt</text>
+        <circle cx="379" cy="253" r="9" fill="#22c55e" opacity="0.08"/>
+        <text x="379" y="257" text-anchor="middle" fill="#22c55e" font-size="7.5" font-weight="600">4</text>
+
+        <!-- ── STEP 9: schema validation ── -->
+        <rect x="350" y="266" width="58" height="18" rx="3" fill="rgba(34,197,94,0.07)"/>
+        <text x="379" y="279" text-anchor="middle" fill="#22c55e" font-size="7">JSON schema validate</text>
+
+        <!-- ── STEP 10: Decoder → Screening Box ── -->
+        <line x1="381" y1="300" x2="720" y2="300" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#ah-amber)"/>
+        <text x="440" y="293" fill="#f59e0b" font-size="8">POST FUF message (localhost HTTP)</text>
+        <circle cx="379" cy="300" r="9" fill="#f59e0b" opacity="0.15"/>
+        <text x="379" y="304" text-anchor="middle" fill="#f59e0b" font-size="7.5" font-weight="600">5</text>
+
+        <!-- Fircosoft processing -->
+        <rect x="695" y="308" width="58" height="18" rx="3" fill="rgba(245,158,11,0.12)"/>
+        <text x="724" y="321" text-anchor="middle" fill="#f59e0b" font-size="7">FCL rules engine</text>
+
+        <!-- ── STEP 11: Screening → Alert Controller ── -->
+        <line x1="726" y1="340" x2="901" y2="340" stroke="#ef4444" stroke-width="1.5" marker-end="url(#ah-red)"/>
+        <text x="750" y="334" fill="#ef4444" font-size="8">POST match result (mTLS)</text>
+        <circle cx="724" cy="340" r="9" fill="#ef4444" opacity="0.15"/>
+        <text x="724" y="344" text-anchor="middle" fill="#ef4444" font-size="7.5" font-weight="600">6</text>
+
+        <!-- Alert Controller processing -->
+        <rect x="876" y="348" width="58" height="18" rx="3" fill="rgba(239,68,68,0.12)"/>
+        <text x="905" y="361" text-anchor="middle" fill="#ef4444" font-size="7">compliance decision</text>
+
+        <!-- ── STEP 12: Alert → Screening (decision) ── -->
+        <line x1="903" y1="378" x2="726" y2="378" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#ah-red)"/>
+        <text x="745" y="372" fill="#ef4444" font-size="8">PASS / HOLD / ALERT</text>
+        <circle cx="905" cy="378" r="9" fill="#ef4444" opacity="0.15"/>
+        <text x="905" y="382" text-anchor="middle" fill="#ef4444" font-size="7.5" font-weight="600">7</text>
+
+        <!-- ── STEP 13: Screening ACK → Decoder ── -->
+        <line x1="722" y1="410" x2="382" y2="410" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#ah-amber)"/>
+        <text x="440" y="404" fill="#f59e0b" font-size="8">screening result + decision</text>
+
+        <!-- ── STEP 14: Decoder → Apigee (response) ── -->
+        <line x1="377" y1="450" x2="213" y2="450" stroke="#3b82f6" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#ah-blue)"/>
+        <text x="235" y="444" fill="#3b82f6" font-size="8">HTTP 200 {status: PASS|HOLD} + correlation ID</text>
+        <circle cx="379" cy="450" r="9" fill="#3b82f6" opacity="0.15"/>
+        <text x="379" y="454" text-anchor="middle" fill="#3b82f6" font-size="7.5" font-weight="600">8</text>
+
+        <!-- ── STEP 15: Apigee → Visa (response) ── -->
+        <line x1="208" y1="490" x2="73" y2="490" stroke="#00d4ff" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#ah-cyan)"/>
+        <text x="88" y="484" fill="#00d4ff" font-size="8">response (mTLS)</text>
+        <circle cx="210" cy="490" r="9" fill="#00d4ff" opacity="0.15"/>
+        <text x="210" y="494" text-anchor="middle" fill="#00d4ff" font-size="7.5" font-weight="600">9</text>
+
+        <!-- Audit log note -->
+        <rect x="38" y="520" width="940" height="24" rx="4" fill="rgba(100,116,139,0.07)" stroke="var(--border)" stroke-width="1"/>
+        <text x="508" y="536" text-anchor="middle" fill="#64748b" font-size="7.5" font-family="IBM Plex Mono">⬛  Audit log + correlation ID written at every step — no plaintext transaction data persisted to disk</text>
+
+        <!-- Correlation ID flow annotation -->
+        <text x="508" y="570" text-anchor="middle" fill="#94a3b8" font-size="8.5" font-family="IBM Plex Mono" font-weight="600">⟵ Correlation ID (UUID) propagated as HTTP header through every hop ⟶</text>
+        <line x1="120" y1="578" x2="960" y2="578" stroke="var(--border)" stroke-width="1" stroke-dasharray="3 2"/>
+
+        <!-- Timeout chain annotation -->
+        <text x="60" y="620" fill="#64748b" font-size="8" font-family="IBM Plex Mono">Timeout chain (outer → inner):  Visa SLA: 10s  ▶  Apigee: 9s  ▶  Decoder total: 8s  ▶  BCCKMS: 500ms (×2 retries)  ▶  Screening+Alert: 6.5s</text>
+
+      </svg>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ══════════════════════════════════════════════════════════════
+     DIAGRAM 3: DECRYPTION FLOW (Decision Tree)
+══════════════════════════════════════════════════════════════ -->
+<div class="diagram-section">
+  <div class="section-label">Diagram 03</div>
+  <div class="diagram-title">Decryption & Key Management Flow</div>
+  <div class="canvas" style="padding:40px;">
+
+    <svg width="100%" height="640" style="font-family:'IBM Plex Mono',monospace;overflow:visible;">
+
+      <!-- CENTER X = 500 -->
+
+      <!-- START -->
+      <rect x="390" y="10" width="220" height="40" rx="20" fill="rgba(34,197,94,0.12)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="500" y="35" text-anchor="middle" fill="#22c55e" font-size="9" font-weight="600" letter-spacing="1">RECEIVE ENCRYPTED PAYLOAD</text>
+
+      <!-- arrow down -->
+      <line x1="500" y1="50" x2="500" y2="75" stroke="#64748b" stroke-width="1.5" marker-end="url(#ah-muted)"/>
+
+      <!-- Extract keyId -->
+      <rect x="400" y="75" width="200" height="36" rx="6" fill="rgba(34,197,94,0.08)" stroke="#22c55e" stroke-width="1.2"/>
+      <text x="500" y="96" text-anchor="middle" fill="#22c55e" font-size="8.5">Extract keyId from payload header</text>
+
+      <line x1="500" y1="111" x2="500" y2="136" stroke="#64748b" stroke-width="1.5" marker-end="url(#ah-muted)"/>
+
+      <!-- CACHE CHECK DIAMOND -->
+      <polygon points="500,136 600,176 500,216 400,176" fill="rgba(59,130,246,0.08)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="500" y="172" text-anchor="middle" fill="#3b82f6" font-size="8.5" font-weight="600">Key in</text>
+      <text x="500" y="184" text-anchor="middle" fill="#3b82f6" font-size="8.5" font-weight="600">cache?</text>
+
+      <!-- YES branch (right) -->
+      <line x1="600" y1="176" x2="680" y2="176" stroke="#22c55e" stroke-width="1.5" marker-end="url(#ah-green)"/>
+      <text x="625" y="170" fill="#22c55e" font-size="8" font-weight="600">YES (HIT)</text>
+
+      <rect x="680" y="156" width="140" height="40" rx="6" fill="rgba(34,197,94,0.08)" stroke="#22c55e" stroke-width="1.2"/>
+      <text x="750" y="181" text-anchor="middle" fill="#22c55e" font-size="8">Use cached key material</text>
+
+      <!-- NO branch (left) -->
+      <line x1="400" y1="176" x2="320" y2="176" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#ah-amber)"/>
+      <text x="325" y="170" fill="#f59e0b" font-size="8" font-weight="600">NO (MISS)</text>
+
+      <!-- Call BCCKMS box -->
+      <rect x="160" y="156" width="158" height="40" rx="6" fill="rgba(168,85,247,0.08)" stroke="#a855f7" stroke-width="1.5"/>
+      <text x="239" y="174" text-anchor="middle" fill="#a855f7" font-size="8.5" font-weight="600">Call BCCKMS (mTLS)</text>
+      <text x="239" y="187" text-anchor="middle" fill="#a855f7" font-size="7.5">GET /key/{keyId}</text>
+
+      <!-- BCCKMS response diamond -->
+      <line x1="239" y1="196" x2="239" y2="218" stroke="#64748b" stroke-width="1.5" marker-end="url(#ah-muted)"/>
+      <polygon points="239,218 299,248 239,278 179,248" fill="rgba(59,130,246,0.08)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="239" y="244" text-anchor="middle" fill="#3b82f6" font-size="8" font-weight="600">BCCKMS</text>
+      <text x="239" y="256" text-anchor="middle" fill="#3b82f6" font-size="8" font-weight="600">OK?</text>
+
+      <!-- Circuit open (NO) -->
+      <line x1="179" y1="248" x2="100" y2="248" stroke="#ef4444" stroke-width="1.5" marker-end="url(#ah-red)"/>
+      <text x="105" y="242" fill="#ef4444" font-size="8">CIRCUIT OPEN</text>
+      <rect x="20" y="228" width="80" height="40" rx="6" fill="rgba(239,68,68,0.08)" stroke="#ef4444" stroke-width="1.5"/>
+      <text x="60" y="246" text-anchor="middle" fill="#ef4444" font-size="8" font-weight="600">RAISE</text>
+      <text x="60" y="258" text-anchor="middle" fill="#ef4444" font-size="8" font-weight="600">KMS ALERT</text>
+
+      <!-- Yes → cache it -->
+      <line x1="239" y1="278" x2="239" y2="302" stroke="#64748b" stroke-width="1.5" marker-end="url(#ah-muted)"/>
+      <rect x="162" y="302" width="154" height="36" rx="6" fill="rgba(168,85,247,0.08)" stroke="#a855f7" stroke-width="1.2"/>
+      <text x="239" y="318" text-anchor="middle" fill="#a855f7" font-size="8">Cache key (TTL=30min)</text>
+      <text x="239" y="330" text-anchor="middle" fill="#a855f7" font-size="7">zero-out old key bytes</text>
+
+      <!-- Join lines from cache hit and BCCKMS paths back to center -->
+      <!-- From cache hit box down -->
+      <line x1="750" y1="196" x2="750" y2="358" stroke="#22c55e" stroke-width="1" stroke-dasharray="4 3"/>
+      <line x1="750" y1="358" x2="502" y2="358" stroke="#22c55e" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#ah-green)"/>
+
+      <!-- From BCCKMS path down -->
+      <line x1="239" y1="338" x2="239" y2="358" stroke="#a855f7" stroke-width="1" stroke-dasharray="4 3"/>
+      <line x1="239" y1="358" x2="498" y2="358" stroke="#a855f7" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#ah-purple)"/>
+
+      <!-- DECRYPT BOX -->
+      <line x1="500" y1="218" x2="500" y2="358" stroke="#64748b" stroke-width="1" stroke-dasharray="3 3"/>
+      <rect x="390" y="358" width="220" height="40" rx="6" fill="rgba(34,197,94,0.12)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="500" y="376" text-anchor="middle" fill="#22c55e" font-size="9" font-weight="600">DECRYPT PAYLOAD</text>
+      <text x="500" y="390" text-anchor="middle" fill="#22c55e" font-size="7.5">AES-256-GCM / RSA-OAEP</text>
+
+      <line x1="500" y1="398" x2="500" y2="420" stroke="#64748b" stroke-width="1.5" marker-end="url(#ah-muted)"/>
+
+      <!-- DECRYPT SUCCESS DIAMOND -->
+      <polygon points="500,420 600,460 500,500 400,460" fill="rgba(59,130,246,0.08)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="500" y="456" text-anchor="middle" fill="#3b82f6" font-size="8" font-weight="600">Decrypt</text>
+      <text x="500" y="468" text-anchor="middle" fill="#3b82f6" font-size="8" font-weight="600">OK?</text>
+
+      <!-- NO → BadPadding → retry once -->
+      <line x1="400" y1="460" x2="310" y2="460" stroke="#ef4444" stroke-width="1.5" marker-end="url(#ah-red)"/>
+      <text x="315" y="454" fill="#ef4444" font-size="8">BadPaddingException</text>
+
+      <rect x="170" y="440" width="140" height="40" rx="6" fill="rgba(239,68,68,0.08)" stroke="#ef4444" stroke-width="1.5"/>
+      <text x="240" y="458" text-anchor="middle" fill="#ef4444" font-size="8">Invalidate cache</text>
+      <text x="240" y="470" text-anchor="middle" fill="#ef4444" font-size="7.5">re-fetch from BCCKMS</text>
+
+      <!-- re-fetch → retry once arrow -->
+      <line x1="170" y1="460" x2="100" y2="460" stroke="#ef4444" stroke-width="1.5"/>
+      <line x1="100" y1="460" x2="100" y2="380" stroke="#ef4444" stroke-width="1.5"/>
+      <line x1="100" y1="380" x2="388" y2="380" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#ah-red)"/>
+      <text x="102" y="420" fill="#ef4444" font-size="7.5" transform="rotate(-90 102 420)">retry once</text>
+
+      <!-- Still fail -->
+      <rect x="22" y="438" width="78" height="44" rx="6" fill="rgba(239,68,68,0.15)" stroke="#ef4444" stroke-width="1.5"/>
+      <text x="61" y="456" text-anchor="middle" fill="#ef4444" font-size="8" font-weight="600">REJECT +</text>
+      <text x="61" y="468" text-anchor="middle" fill="#ef4444" font-size="8" font-weight="600">ALERT OPS</text>
+
+      <!-- YES → Schema Validation -->
+      <line x1="500" y1="500" x2="500" y2="524" stroke="#64748b" stroke-width="1.5" marker-end="url(#ah-muted)"/>
+      <text x="510" y="515" fill="#22c55e" font-size="8">OK</text>
+
+      <rect x="390" y="524" width="220" height="36" rx="6" fill="rgba(34,197,94,0.08)" stroke="#22c55e" stroke-width="1.2"/>
+      <text x="500" y="542" text-anchor="middle" fill="#22c55e" font-size="8.5">JSON Schema Validation</text>
+      <text x="500" y="554" text-anchor="middle" fill="#22c55e" font-size="7.5">field presence + type checks</text>
+
+      <line x1="500" y1="560" x2="500" y2="582" stroke="#64748b" stroke-width="1.5" marker-end="url(#ah-muted)"/>
+
+      <!-- FORWARD TO SCREENING -->
+      <rect x="370" y="582" width="260" height="40" rx="20" fill="rgba(245,158,11,0.12)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="500" y="606" text-anchor="middle" fill="#f59e0b" font-size="9" font-weight="600">FORWARD TO SCREENING BOX</text>
+      <text x="500" y="618" text-anchor="middle" fill="#f59e0b" font-size="7.5">FUF message → Fircosoft V6</text>
+
+      <!-- circuit open → reject path -->
+      <line x1="60" y1="268" x2="60" y2="600" stroke="#ef4444" stroke-width="1" stroke-dasharray="3 3" opacity="0.4"/>
+      <line x1="60" y1="600" x2="368" y2="600" stroke="#ef4444" stroke-width="1" stroke-dasharray="3 3" opacity="0.4"/>
+
+      <!-- KMS OK? YES label -->
+      <text x="245" y="286" fill="#22c55e" font-size="8" font-weight="600">YES</text>
+
+    </svg>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ══════════════════════════════════════════════════════════════
+     DIAGRAM 4: CERTIFICATE / mTLS TRUST MAP
+══════════════════════════════════════════════════════════════ -->
+<div class="diagram-section">
+  <div class="section-label">Diagram 04</div>
+  <div class="diagram-title">mTLS Certificate Trust Map</div>
+  <div class="canvas" style="padding: 40px;">
+    <svg width="100%" height="320" style="font-family:'IBM Plex Mono',monospace;overflow:visible;">
+
+      <!-- Two CA roots -->
+      <!-- VISA PKI CA -->
+      <rect x="60" y="20" width="160" height="50" rx="8" fill="rgba(0,212,255,0.08)" stroke="#00d4ff" stroke-width="1.5"/>
+      <text x="140" y="41" text-anchor="middle" fill="#00d4ff" font-size="9" font-weight="600">VISA PKI CA</text>
+      <text x="140" y="57" text-anchor="middle" fill="#00d4ff" font-size="7.5" opacity="0.7">External Certificate Authority</text>
+
+      <!-- BNP Paribas Internal CA -->
+      <rect x="780" y="20" width="190" height="50" rx="8" fill="rgba(34,197,94,0.08)" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="875" y="41" text-anchor="middle" fill="#22c55e" font-size="9" font-weight="600">BNP PARIBAS INTERNAL CA</text>
+      <text x="875" y="57" text-anchor="middle" fill="#22c55e" font-size="7.5" opacity="0.7">Internal Certificate Authority</text>
+
+      <!-- Connections table -->
+      <!-- Headers -->
+      <rect x="30" y="100" width="1000" height="30" rx="4" fill="rgba(255,255,255,0.03)"/>
+      <text x="80"  y="120" fill="#64748b" font-size="8.5" font-weight="600" letter-spacing="1">CONNECTION</text>
+      <text x="330" y="120" fill="#64748b" font-size="8.5" font-weight="600" letter-spacing="1">CLIENT</text>
+      <text x="500" y="120" fill="#64748b" font-size="8.5" font-weight="600" letter-spacing="1">SERVER</text>
+      <text x="680" y="120" fill="#64748b" font-size="8.5" font-weight="600" letter-spacing="1">CERT AUTHORITY</text>
+      <text x="870" y="120" fill="#64748b" font-size="8.5" font-weight="600" letter-spacing="1">PROTOCOL</text>
+
+      <!-- Row 1 -->
+      <line x1="30" y1="135" x2="1030" y2="135" stroke="var(--border)" stroke-width="0.5"/>
+      <text x="80"  y="152" fill="#00d4ff" font-size="8.5">Visa → Apigee</text>
+      <text x="330" y="152" fill="#94a3b8" font-size="8.5">Visa</text>
+      <text x="500" y="152" fill="#94a3b8" font-size="8.5">Apigee (northbound)</text>
+      <text x="680" y="152" fill="#00d4ff" font-size="8.5">Visa PKI CA</text>
+      <text x="870" y="152" fill="#94a3b8" font-size="8.5">TLS 1.3 / mTLS</text>
+
+      <!-- Row 2 -->
+      <line x1="30" y1="165" x2="1030" y2="165" stroke="var(--border)" stroke-width="0.5"/>
+      <text x="80"  y="182" fill="#3b82f6" font-size="8.5">Apigee → Decoder</text>
+      <text x="330" y="182" fill="#94a3b8" font-size="8.5">Apigee (southbound)</text>
+      <text x="500" y="182" fill="#94a3b8" font-size="8.5">Decoder App</text>
+      <text x="680" y="182" fill="#22c55e" font-size="8.5">BNP Internal CA</text>
+      <text x="870" y="182" fill="#94a3b8" font-size="8.5">TLS 1.3 / mTLS</text>
+
+      <!-- Row 3 -->
+      <line x1="30" y1="195" x2="1030" y2="195" stroke="var(--border)" stroke-width="0.5"/>
+      <text x="80"  y="212" fill="#a855f7" font-size="8.5">Decoder → BCCKMS</text>
+      <text x="330" y="212" fill="#94a3b8" font-size="8.5">Decoder App</text>
+      <text x="500" y="212" fill="#94a3b8" font-size="8.5">BCCKMS Server</text>
+      <text x="680" y="212" fill="#22c55e" font-size="8.5">BNP Internal CA</text>
+      <text x="870" y="212" fill="#94a3b8" font-size="8.5">TLS 1.3 / mTLS</text>
+
+      <!-- Row 4 -->
+      <line x1="30" y1="225" x2="1030" y2="225" stroke="var(--border)" stroke-width="0.5"/>
+      <text x="80"  y="242" fill="#22c55e" font-size="8.5">Decoder → Screening Box</text>
+      <text x="330" y="242" fill="#94a3b8" font-size="8.5">Decoder App</text>
+      <text x="500" y="242" fill="#94a3b8" font-size="8.5">Fircosoft V6 (localhost)</text>
+      <text x="680" y="242" fill="#64748b" font-size="8.5">N/A (127.0.0.1 only)</text>
+      <text x="870" y="242" fill="#94a3b8" font-size="8.5">HTTP (loopback)</text>
+
+      <!-- Row 5 -->
+      <line x1="30" y1="255" x2="1030" y2="255" stroke="var(--border)" stroke-width="0.5"/>
+      <text x="80"  y="272" fill="#f59e0b" font-size="8.5">Screening → Alert Controller</text>
+      <text x="330" y="272" fill="#94a3b8" font-size="8.5">Server A (Fircosoft)</text>
+      <text x="500" y="272" fill="#94a3b8" font-size="8.5">Server B (Alert Ctrl)</text>
+      <text x="680" y="272" fill="#22c55e" font-size="8.5">BNP Internal CA</text>
+      <text x="870" y="272" fill="#94a3b8" font-size="8.5">TLS 1.3 / mTLS</text>
+
+      <line x1="30" y1="285" x2="1030" y2="285" stroke="var(--border)" stroke-width="0.5"/>
+
+      <!-- footnote -->
+      <text x="30" y="308" fill="#64748b" font-size="8">⚠  All certificates must be rotated on a schedule. Automate cert expiry monitoring. Apigee truststore must pin Visa cert subject DN, not just CA.</text>
+    </svg>
+  </div>
+</div>
+
+<div style="text-align:center;margin-top:48px;font-family:'IBM Plex Mono',monospace;font-size:8.5px;color:var(--muted);letter-spacing:0.1em;">
+  BNP PARIBAS CPL · SHINE PROJECT · VISA ONBOARDING · FIRCOSOFT V6 · CONFIDENTIAL
+</div>
+
+</body>
+</html>
